@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id           String         @id @default(cuid())
+  name         String
+  company      String?
+  phone        String?
+  email        String?
+  createdAt    DateTime       @default(now())
+isActive Boolean @default(true)
+  tickets      Ticket[]
+  projects     Project[]
+  socialPosts  SocialPost[]
+  users        User[]
+  subscriptions Subscription[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  role      String
+  clientId  String?
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+activationToken String?
+activationExpires DateTime?
+  ticketUpdates TicketUpdate[]
+  notificationsEnabled Boolean @default(true)
+
+  client Client? @relation(fields: [clientId], references: [id])
+}
+
+model Subscription {
+  id          String   @id @default(cuid())
+  clientId    String
+  mediaPlanId String
+
+  status      String   @default("ativa")
+
+  monthlyPrice Int?     // 👈 preço mensal em cêntimos
+
+  cancelReason       String?
+  cancelRequestedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  client      Client    @relation(fields: [clientId], references: [id])
+  mediaPlan   MediaPlan @relation(fields: [mediaPlanId], references: [id])
+
+  socialPosts SocialPost[]
+  services    SubscriptionService[]
+}
+
+model SubscriptionService {
+  subscriptionId String
+  serviceId      String
+
+  yearlyPrice Int? // 👈 preço anual em cêntimos
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  service      Service      @relation(fields: [serviceId], references: [id])
+
+  @@id([subscriptionId, serviceId])
+}
+
+model Service {
+  id        String   @id @default(cuid())
+  name      String
+  price     Int      // 👈 preço base anual em cêntimos
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  subscriptions SubscriptionService[]
+}
+
+model MediaPlan {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  channels    String
+  periodDays  Int
+
+  price     Int?      // 👈 preço mensal em cêntimos
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  clientId     String
+  name         String
+  description  String?
+  status       String   @default("novo")
+  durationDays Int?
+  createdAt    DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  notes ProjectNote[]
+}
+
+model SocialPost {
+  id String @id @default(cuid())
+
+  clientId       String
+  subscriptionId String
+
+  scheduledFor DateTime
+  status       String   @default("novo") // novo|agendado|publicado|cancelado
+
+  createdAt DateTime @default(now())
+
+  client       Client       @relation(fields: [clientId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([subscriptionId, scheduledFor])
+  @@index([subscriptionId, scheduledFor])
+}
+
+model Ticket {
+  id          String @id @default(cuid())
+  clientId    String
+  subject     String
+  description String
+
+  department String  @default("tecnico")
+  priority   String  @default("normal")
+  service    String?
+
+  status String @default("aberto")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client         @relation(fields: [clientId], references: [id])
+  updates TicketUpdate[]
+}
+
+model TicketUpdate {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String?
+  author    String
+  content   String
+  createdAt DateTime @default(now())
+seen      Boolean  @default(false) 
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+}
+
+model ProjectNote {
+  id        String   @id @default(cuid())
+  projectId String
+
+  content   String
+  read      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+}
