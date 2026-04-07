@@ -24,11 +24,8 @@ const app = express()
 // ✅ CORS
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://duit.pt"
-  ],
-  credentials: true,
+  origin: "https://duit.pt",
+  credentials: true
 }))
 
 app.use(express.json())
