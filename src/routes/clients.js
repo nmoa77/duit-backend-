@@ -44,7 +44,7 @@ const token = randomBytes(32).toString("hex")
     })
 
     // 🔗 link
-    const link = `http://localhost:5173/set-password?token=${token}`
+    const link = `${process.env.APP_URL}/clt/set-password?token=${token}`
 
     console.log("📩 NOVO CLIENTE - EMAIL:", email)
 
@@ -78,7 +78,7 @@ router.post("/:id/activate", async (req, res) => {
     }
 
     // 🔐 gerar token
-    const token = crypto.randomBytes(32).toString("hex")
+    const token = randomBytes(32).toString("hex")
 
     // 🔍 ver se já existe user
     let user = await prisma.user.findUnique({
@@ -108,14 +108,10 @@ router.post("/:id/activate", async (req, res) => {
 
     const link = `http://localhost:5173/set-password?token=${token}`
 
-    console.log("SMTP HOST:", process.env.SMTP_HOST)
-console.log("SMTP PORT:", process.env.SMTP_PORT)
-console.log("SMTP USER:", process.env.SMTP_USER)
-console.log("SMTP FROM:", process.env.SMTP_FROM)
+
 
   try {
-  console.log("A TENTAR ENVIAR EMAIL PARA:", client.email)
-  console.log("LINK ATIVAÇÃO:", link)
+
 
   await sendActivationEmail({
     to: client.email,
