@@ -2,12 +2,12 @@ import express from "express"
 import prisma from "../prisma.js"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
-import { sendResetPasswordEmail  } from "../utils/sendProjectStatusEmail.js"
+import { sendResetPasswordEmail } from "../utils/sendProjectStatusEmail.js"
 import { randomBytes } from "crypto"
 
 const router = express.Router()
 
-// LOGIN
+// 🔐 LOGIN
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body
@@ -17,23 +17,16 @@ router.post("/login", async (req, res) => {
       include: { client: true }
     })
 
-    // 1. user existe?
     if (!user) {
-      return res.status(400).json({
-        message: "Credenciais inválidas"
-      })
+      return res.status(400).json({ message: "Credenciais inválidas" })
     }
 
-    // 2. password correta?
     const valid = await bcrypt.compare(password, user.password)
 
     if (!valid) {
-      return res.status(400).json({
-        message: "Credenciais inválidas"
-      })
+      return res.status(400).json({ message: "Credenciais inválidas" })
     }
 
-    // 3. conta ativa?
     if (user.role === "client" && user.client && !user.client.isActive) {
       return res.status(403).json({
         message: "Conta desativada. Contacte o suporte."
@@ -50,8 +43,15 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     )
 
+    // ✅ COOKIE (CHAVE DISTO TUDO)
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,       // obrigatório em produção (https)
+      sameSite: "none",   // obrigatório com frontend separado
+      path: "/"
+    })
+
     res.json({
-      token,
       user: {
         id: user.id,
         email: user.email,
@@ -62,22 +62,32 @@ router.post("/login", async (req, res) => {
 
   } catch (err) {
     console.error("ERRO LOGIN:", err)
-    res.status(500).json({
-      message: "Erro no login"
-    })
+    res.status(500).json({ message: "Erro no login" })
   }
 })
 
-// ME
+
+// 🔐 LOGOUT
+router.post("/logout", (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/"
+  })
+
+  res.json({ ok: true })
+})
+
+
+// 🔐 ME (ver sessão atual)
 router.get("/me", async (req, res) => {
   try {
-    const authHeader = req.headers.authorization
+    const token = req.cookies.token
 
-    if (!authHeader) {
+    if (!token) {
       return res.status(401).json(null)
     }
-
-    const token = authHeader.split(" ")[1]
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
@@ -92,13 +102,14 @@ router.get("/me", async (req, res) => {
     })
 
     res.json(user)
-  } catch {
+
+  } catch (err) {
     res.status(401).json(null)
   }
 })
 
 
-
+// 🔐 SET PASSWORD
 router.post("/set-password", async (req, res) => {
   try {
     const { token, password } = req.body
@@ -109,7 +120,6 @@ router.post("/set-password", async (req, res) => {
       })
     }
 
-    // 🔍 encontrar user pelo token
     const user = await prisma.user.findFirst({
       where: { activationToken: token }
     })
@@ -120,12 +130,8 @@ router.post("/set-password", async (req, res) => {
       })
     }
 
-    // 🔐 criar hash
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    console.log("HASH GERADA:", hashedPassword)
-
-    // 💾 guardar password
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -133,8 +139,6 @@ router.post("/set-password", async (req, res) => {
         activationToken: null
       }
     })
-
-    console.log("USER ATUALIZADO")
 
     res.json({ ok: true })
 
@@ -145,7 +149,6 @@ router.post("/set-password", async (req, res) => {
     })
   }
 })
-
 
 
 // 🔐 PEDIR RESET PASSWORD
@@ -161,7 +164,6 @@ router.post("/request-password-reset", async (req, res) => {
       where: { email }
     })
 
-    // ⚠️ nunca dizer se existe ou não
     if (!user) {
       return res.json({
         ok: true,
@@ -178,13 +180,13 @@ router.post("/request-password-reset", async (req, res) => {
       }
     })
 
-    const link = `http://localhost:5173/set-password?token=${token}`
+    const link = `${process.env.APP_URL}/set-password?token=${token}`
 
-   await sendResetPasswordEmail({
-  to: email,
-  clientName: user.name || "",
-  resetLink: link
-})
+    await sendResetPasswordEmail({
+      to: email,
+      clientName: user.name || "",
+      resetLink: link
+    })
 
     res.json({
       ok: true,
@@ -198,4 +200,5 @@ router.post("/request-password-reset", async (req, res) => {
     })
   }
 })
+
 export default router

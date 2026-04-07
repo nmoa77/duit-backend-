@@ -24,10 +24,11 @@ const app = express()
 // ✅ CORS
 
 app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true, // 🔥 FALTA ISTO
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  origin: [
+    "http://localhost:5173",
+    "https://duit.pt"
+  ],
+  credentials: true,
 }))
 
 app.use(express.json())
@@ -55,6 +56,8 @@ app.use("/api/client-project-notes", authRequired, clientProjectNotesRoutes)
 // 📁 STATIC
 app.use("/uploads", express.static("uploads"))
 
-app.listen(3000, () => {
-  console.log("Backend a correr em http://localhost:3000")
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT, () => {
+  console.log(`Backend a correr na porta ${PORT}`)
 })

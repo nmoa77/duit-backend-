@@ -1,28 +1,45 @@
+import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import prisma from "../src/prisma.js"
+
+const prisma = new PrismaClient()
 
 async function main() {
-  const password = "admin123"
-  const hashed = await bcrypt.hash(password, 10)
+  const email = "admin@duit.pt"
+  const plainPassword = "Admin12345!"
 
-  await prisma.user.upsert({
-    where: { email: "admin@duit.pt" },
-    update: {
-      password: hashed,
-      role: "admin"
-    },
-    create: {
-      email: "admin@duit.pt",
-      password: hashed,
-      role: "admin"
+  const existing = await prisma.user.findUnique({
+    where: { email }
+  })
+
+  if (existing) {
+    console.log(`Já existe utilizador com o email ${email}`)
+    return
+  }
+
+  const hashedPassword = await bcrypt.hash(plainPassword, 10)
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+      role: "admin",
+      name: "Nuno Admin"
     }
   })
 
-  console.log("✅ Admin criado:")
-  console.log("Email: admin@duit.pt")
-  console.log("Password: admin123")
+  console.log("Admin criado com sucesso:")
+  console.log({
+    id: user.id,
+    email: user.email,
+    password: plainPassword
+  })
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect())
+  .catch((e) => {
+    console.error("Erro no seed:", e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
