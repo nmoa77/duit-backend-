@@ -25,18 +25,24 @@ function normalizeProjectStatus(status) {
 // =========================
 
 // GET /projects
-router.get("/", authRequired, requireRole("admin", "client"), async (req, res) => {
- const projects = await prisma.project.findMany({
-  include: {
-    client: true
-    
-  },
-  orderBy: {
-    createdAt: "desc"
-  }
-})
+router.get("/:id", authRequired, async (req, res) => {
+  const project = await prisma.project.findUnique({
+    where: { id: req.params.id },
+    include: { client: true }
+  })
 
-  res.json(projects)
+  if (!project) {
+    return res.status(404).json({ error: "Projeto não encontrado" })
+  }
+
+  if (
+    req.user.role === "client" &&
+    project.clientId !== req.user.clientId
+  ) {
+    return res.status(403).json({ error: "Sem acesso" })
+  }
+
+  res.json(project)
 })
 
 // GET /projects/:id
