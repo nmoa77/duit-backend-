@@ -1,4 +1,4 @@
-import express from "express"
+import { Router } from "express"
 import prisma from "../prisma.js"
 import { authRequired, requireRole } from "../middleware/auth.js"
 import { 
@@ -6,7 +6,7 @@ import {
   sendProjectCreatedEmail 
 } from "../utils/sendProjectStatusEmail.js"
 
-const router = express.Router()
+const router = Router()
 
 function normalizeProjectStatus(status) {
   if (!status) return "novo"
