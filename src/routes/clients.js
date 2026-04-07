@@ -14,6 +14,7 @@ const router = express.Router()
 
 // CRIAR CLIENTE
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
+  console.log("🔥 A ENTRAR NA ROTA DE CRIAR CLIENTE")
   const { name, company, email, phone } = req.body
 
   if (!name || !email) {
