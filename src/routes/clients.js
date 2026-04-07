@@ -15,6 +15,7 @@ const router = express.Router()
 // CRIAR CLIENTE
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   console.log("🔥 A ENTRAR NA ROTA DE CRIAR CLIENTE")
+
   const { name, company, email, phone } = req.body
 
   if (!name || !email) {
@@ -23,9 +24,21 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 
   try {
 
-    // 🔐 token
-const token = randomBytes(32).toString("hex")
+    // 🔒 REGRA: 1 EMAIL = 1 USER
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    })
 
+    if (existingUser) {
+      return res.status(400).json({
+        error: "Já existe uma conta com este email"
+      })
+    }
+
+    // 🔐 token
+    const token = randomBytes(32).toString("hex")
+
+    // 💾 criar cliente + user
     const result = await prisma.$transaction(async (tx) => {
 
       const client = await tx.client.create({
@@ -44,21 +57,31 @@ const token = randomBytes(32).toString("hex")
       return { client, user }
     })
 
-    // 🔗 link
+    // 🔗 link produção
     const link = `${process.env.APP_URL}/clt/set-password?token=${token}`
 
     console.log("📩 NOVO CLIENTE - EMAIL:", email)
 
-    await sendActivationEmail({
-      to: email,
-      clientName: name,
-      activationLink: link
-    })
+    // 📤 EMAIL (fora da transaction)
+    try {
+      console.log("📤 A TENTAR ENVIAR EMAIL")
+
+      await sendActivationEmail({
+        to: email,
+        clientName: name,
+        activationLink: link
+      })
+
+      console.log("✅ EMAIL ENVIADO")
+
+    } catch (emailError) {
+      console.error("❌ ERRO AO ENVIAR EMAIL:", emailError)
+    }
 
     res.json(result)
 
   } catch (err) {
-    console.error(err)
+    console.error("❌ ERRO CRIAR CLIENTE:", err)
     res.status(500).json({ error: "Erro ao criar cliente" })
   }
 })
@@ -225,7 +248,10 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
     const userUpdateData = { email }
 
-    if (password && password.trim() !== "") {
+    const isPasswordBeingChanged =
+      typeof password === "string" && password.trim() !== ""
+
+    if (isPasswordBeingChanged) {
       const hashed = await bcrypt.hash(password, 10)
       userUpdateData.password = hashed
     }
@@ -235,7 +261,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
       data: userUpdateData
     })
 
-    if (password && password.trim() !== "") {
+    if (isPasswordBeingChanged) {
       await sendPasswordChangedEmail(updatedUser.email)
     }
 
