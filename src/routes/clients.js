@@ -106,7 +106,7 @@ router.post("/:id/activate", async (req, res) => {
       })
     }
 
-    const link = `http://localhost:5173/set-password?token=${token}`
+    const link = `${process.env.APP_URL}/clt/set-password?token=${token}`
 
 
 
