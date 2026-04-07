@@ -3,7 +3,7 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+  port: Number(process.env.SMTP_PORT),
   secure: false,
   auth: {
     user: process.env.SMTP_USER,
@@ -19,6 +19,11 @@ const STATUS_LABEL = {
   concluido: "Concluído"
 }
 
+console.log("SMTP CONFIG:", {
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  user: process.env.SMTP_USER
+})
 
 
 export async function sendProjectStatusEmail({
