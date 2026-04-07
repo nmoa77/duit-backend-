@@ -63,23 +63,7 @@ router.get("/:id", authRequired, async (req, res) => {
   res.json(project)
 })
 
-// GET /projects/:id
-router.get("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const project = await prisma.project.findUnique({
-    where: { id: req.params.id },
-    include: {
-    client: true
 
-  }
-
-  })
-
-  if (!project) {
-    return res.status(404).json({ error: "Projeto não encontrado" })
-  }
-
-  res.json(project)
-})
 
 // POST /projects
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
