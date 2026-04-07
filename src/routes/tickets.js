@@ -199,7 +199,7 @@ router.post("/:id/updates", authRequired, async (req, res) => {
 
 
     // 🔥 NOTIFICAÇÃO
-    if (isAdmin) {
+   if (isAdmin && !content.startsWith("[SYSTEM]")) {
 
       const ticketWithUsers = await prisma.ticket.findUnique({
         where: { id },
