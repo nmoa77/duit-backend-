@@ -24,6 +24,24 @@ function normalizeProjectStatus(status) {
 // ADMIN
 // =========================
 
+// =========================
+// CLIENT
+// =========================
+
+// GET /projects/my
+router.get("/my/list", authRequired, async (req, res) => {
+  if (!req.user.clientId) {
+    return res.json([])
+  }
+
+  const projects = await prisma.project.findMany({
+    where: { clientId: req.user.clientId },
+    orderBy: { createdAt: "desc" }
+  })
+
+  res.json(projects)
+})
+
 // GET /projects
 router.get("/:id", authRequired, async (req, res) => {
   const project = await prisma.project.findUnique({
@@ -208,22 +226,6 @@ router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
   res.json({ ok: true })
 })
 
-// =========================
-// CLIENT
-// =========================
 
-// GET /projects/my
-router.get("/my/list", authRequired, async (req, res) => {
-  if (!req.user.clientId) {
-    return res.json([])
-  }
-
-  const projects = await prisma.project.findMany({
-    where: { clientId: req.user.clientId },
-    orderBy: { createdAt: "desc" }
-  })
-
-  res.json(projects)
-})
 
 export default router
