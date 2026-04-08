@@ -304,4 +304,60 @@ router.get("/:id", authRequired, async (req, res) => {
   }
 })
 
+
+
+router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
+  const { id } = req.params
+
+  try {
+
+    await prisma.$transaction(async (tx) => {
+
+      // 🔥 apagar ticket updates
+      await tx.ticketUpdate.deleteMany({
+        where: {
+          ticket: { clientId: id }
+        }
+      })
+
+      // 🔥 apagar tickets
+      await tx.ticket.deleteMany({
+        where: { clientId: id }
+      })
+
+      // 🔥 apagar projetos
+      await tx.project.deleteMany({
+        where: { clientId: id }
+      })
+
+      // 🔥 apagar posts (se tiveres)
+      await tx.socialPost.deleteMany({
+        where: { clientId: id }
+      })
+
+      // 🔥 apagar subscriptions
+      await tx.subscription.deleteMany({
+        where: { clientId: id }
+      })
+
+      // 🔥 apagar users
+      await tx.user.deleteMany({
+        where: { clientId: id }
+      })
+
+      // 🔥 finalmente apagar cliente
+      await tx.client.delete({
+        where: { id }
+      })
+
+    })
+
+    res.json({ success: true })
+
+  } catch (err) {
+    console.error("ERRO AO APAGAR CLIENTE:", err)
+    res.status(500).json({ error: "Erro ao apagar cliente" })
+  }
+})
+
 export default router
