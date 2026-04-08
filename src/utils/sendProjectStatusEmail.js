@@ -1,4 +1,3 @@
-import * as brevo from "@getbrevo/brevo"
 import { buildEmailTemplate } from "./emailTemplate.js"
 
 // =========================
@@ -6,12 +5,7 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 // =========================
 
 const BASE_URL = process.env.APP_URL || "http://localhost:5173"
-
-const apiInstance = new brevo.TransactionalEmailsApi()
-apiInstance.setApiKey(
-  brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-)
+const BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
 console.log("BREVO CONFIG:", {
   from: process.env.SMTP_FROM,
@@ -43,32 +37,56 @@ const TICKET_STATUS_LABEL = {
 // =========================
 
 async function sendEmail({ to, subject, html }) {
-  try {
-    const email = new brevo.SendSmtpEmail()
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error("BREVO_API_KEY não definida")
+  }
 
-    email.subject = subject
-    email.htmlContent = html
-    email.sender = {
+  if (!process.env.SMTP_FROM) {
+    throw new Error("SMTP_FROM não definido")
+  }
+
+  const payload = {
+    sender: {
       name: "DUIT",
       email: process.env.SMTP_FROM
-    }
-    email.to = [{ email: to }]
-
-    const result = await apiInstance.sendTransacEmail(email)
-
-    console.log("✅ EMAIL ENVIADO:", result?.body || result)
-    return result
-  } catch (err) {
-    console.error("❌ ERRO EMAIL:", err?.response?.body || err.message || err)
-    throw err
+    },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html
   }
+
+  const response = await fetch(BREVO_URL, {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "content-type": "application/json",
+      "api-key": process.env.BREVO_API_KEY
+    },
+    body: JSON.stringify(payload)
+  })
+
+  const text = await response.text()
+
+  let data
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    data = { raw: text }
+  }
+
+  if (!response.ok) {
+    console.error("❌ ERRO BREVO:", data)
+    throw new Error(`Brevo ${response.status}: ${JSON.stringify(data)}`)
+  }
+
+  console.log("✅ EMAIL ENVIADO:", data)
+  return data
 }
 
 // =========================
 // EMAILS
 // =========================
 
-// 🔹 STATUS PROJETO
 export async function sendProjectStatusEmail({
   to,
   clientName,
@@ -98,7 +116,6 @@ export async function sendProjectStatusEmail({
   }
 }
 
-// 🔹 PROJETO CRIADO
 export async function sendProjectCreatedEmail({
   to,
   clientName,
@@ -135,7 +152,6 @@ export async function sendProjectCreatedEmail({
   }
 }
 
-// 🔹 PASSWORD ALTERADA
 export async function sendPasswordChangedEmail(to) {
   try {
     const html = buildEmailTemplate({
@@ -158,7 +174,6 @@ export async function sendPasswordChangedEmail(to) {
   }
 }
 
-// 🔹 STATUS TICKET
 export async function sendTicketStatusEmail({
   to,
   clientName,
@@ -188,7 +203,6 @@ export async function sendTicketStatusEmail({
   }
 }
 
-// 🔹 ATIVAÇÃO
 export async function sendActivationEmail({
   to,
   clientName,
@@ -211,20 +225,19 @@ export async function sendActivationEmail({
       `
     })
 
-    await sendEmail({
+    const info = await sendEmail({
       to,
       subject: "Ative a sua conta",
       html
     })
 
-    console.log("✅ EMAIL ENVIADO:", to)
+    console.log("✅ EMAIL ENVIADO:", info)
   } catch (err) {
     console.error("❌ ERRO EMAIL ATIVAÇÃO:", err)
     throw err
   }
 }
 
-// 🔹 RESET PASSWORD
 export async function sendResetPasswordEmail({
   to,
   clientName,
@@ -261,7 +274,6 @@ export async function sendResetPasswordEmail({
   }
 }
 
-// 🔹 RESPOSTA TICKET
 export async function sendTicketReplyEmail({
   to,
   clientName,
