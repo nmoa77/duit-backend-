@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer"
+import brevo from "@getbrevo/brevo"
 import { buildEmailTemplate } from "./emailTemplate.js"
 
 // =========================
@@ -7,29 +7,17 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 
 const BASE_URL = process.env.APP_URL || "http://localhost:5173"
 
-// ✅ TRANSPORTER (BREVO)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: true, // 465
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
+const apiInstance = new brevo.TransactionalEmailsApi()
+apiInstance.setApiKey(
+  brevo.TransactionalEmailsApiApiKeys.apiKey,
+  process.env.BREVO_API_KEY
+)
+
+console.log("BREVO CONFIG:", {
+  from: process.env.SMTP_FROM,
+  appUrl: process.env.APP_URL,
+  hasApiKey: Boolean(process.env.BREVO_API_KEY)
 })
-
-// 🔥 DEBUG SMTP
-console.log("SMTP CONFIG:", {
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  user: process.env.SMTP_USER
-})
-
-// 🔥 TESTE DE CONEXÃO
-transporter.verify()
-  .then(() => console.log("✅ SMTP pronto"))
-  .catch(err => console.error("❌ SMTP ERRO:", err))
-
 
 // =========================
 // LABELS
@@ -47,9 +35,34 @@ const TICKET_STATUS_LABEL = {
   aberto: "Aberto",
   respondido: "Respondido",
   cliente_respondeu: "Cliente respondeu",
-  fechado: "Fechado",
+  fechado: "Fechado"
 }
 
+// =========================
+// HELPER
+// =========================
+
+async function sendEmail({ to, subject, html }) {
+  try {
+    const email = new brevo.SendSmtpEmail()
+
+    email.subject = subject
+    email.htmlContent = html
+    email.sender = {
+      name: "DUIT",
+      email: process.env.SMTP_FROM
+    }
+    email.to = [{ email: to }]
+
+    const result = await apiInstance.sendTransacEmail(email)
+
+    console.log("✅ EMAIL ENVIADO:", result?.body || result)
+    return result
+  } catch (err) {
+    console.error("❌ ERRO EMAIL:", err?.response?.body || err.message || err)
+    throw err
+  }
+}
 
 // =========================
 // EMAILS
@@ -73,20 +86,17 @@ export async function sendProjectStatusEmail({
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: `Atualização do projeto: ${projectName}`,
       html
     })
 
     console.log("✅ Email status enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendProjectStatusEmail:", err)
   }
 }
-
 
 // 🔹 PROJETO CRIADO
 export async function sendProjectCreatedEmail({
@@ -113,20 +123,17 @@ export async function sendProjectCreatedEmail({
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: `Novo projeto criado: ${projectName}`,
       html
     })
 
     console.log("✅ Email projeto criado enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendProjectCreatedEmail:", err)
   }
 }
-
 
 // 🔹 PASSWORD ALTERADA
 export async function sendPasswordChangedEmail(to) {
@@ -139,20 +146,17 @@ export async function sendPasswordChangedEmail(to) {
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: "A sua password foi alterada",
       html
     })
 
     console.log("✅ Email password enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendPasswordChangedEmail:", err)
   }
 }
-
 
 // 🔹 STATUS TICKET
 export async function sendTicketStatusEmail({
@@ -172,20 +176,17 @@ export async function sendTicketStatusEmail({
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: `Atualização do ticket: ${ticketSubject}`,
       html
     })
 
     console.log("✅ Email ticket status enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendTicketStatusEmail:", err)
   }
 }
-
 
 // 🔹 ATIVAÇÃO
 export async function sendActivationEmail({
@@ -196,25 +197,32 @@ export async function sendActivationEmail({
   try {
     console.log("📤 A enviar email para:", to)
 
-    const info = await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
-      to,
-      subject: "Ative a sua conta",
-      html: `
-        <h2>Olá ${clientName}</h2>
+    const html = buildEmailTemplate({
+      title: "Ative a sua conta",
+      content: `
+        <p>${clientName ? `Olá ${clientName},` : "Olá,"}</p>
         <p>Ative a sua conta:</p>
-        <a href="${activationLink}">Ativar conta</a>
+        <p style="margin-top:20px;">
+          <a href="${activationLink}" 
+             style="background:#16B3B1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;">
+            Ativar conta
+          </a>
+        </p>
       `
     })
 
-    console.log("✅ EMAIL ENVIADO:", info.messageId)
+    await sendEmail({
+      to,
+      subject: "Ative a sua conta",
+      html
+    })
 
+    console.log("✅ EMAIL ENVIADO:", to)
   } catch (err) {
     console.error("❌ ERRO EMAIL ATIVAÇÃO:", err)
     throw err
   }
 }
-
 
 // 🔹 RESET PASSWORD
 export async function sendResetPasswordEmail({
@@ -241,20 +249,17 @@ export async function sendResetPasswordEmail({
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: "Redefinir password",
       html
     })
 
     console.log("✅ Email reset enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendResetPasswordEmail:", err)
   }
 }
-
 
 // 🔹 RESPOSTA TICKET
 export async function sendTicketReplyEmail({
@@ -284,15 +289,13 @@ export async function sendTicketReplyEmail({
       `
     })
 
-    await transporter.sendMail({
-      from: `"DUIT" <${process.env.SMTP_FROM}>`,
+    await sendEmail({
       to,
       subject: `Nova resposta: ${ticketSubject}`,
       html
     })
 
     console.log("✅ Email reply enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendTicketReplyEmail:", err)
   }
