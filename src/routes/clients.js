@@ -227,15 +227,18 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
   const { name, company, email, phone, password, isActive } = req.body
 
   try {
+    // 🔹 atualizar só campos do cliente que vierem definidos
+    const clientData = {}
+
+    if (typeof name === "string") clientData.name = name
+    if (typeof company === "string") clientData.company = company
+    if (typeof email === "string") clientData.email = email
+    if (typeof phone === "string") clientData.phone = phone
+    if (typeof isActive === "boolean") clientData.isActive = isActive
+
     await prisma.client.update({
       where: { id },
-      data: {
-        name,
-        company,
-        email,
-        phone,
-        ...(isActive !== undefined ? { isActive } : {})
-      }
+      data: clientData
     })
 
     const existingUser = await prisma.user.findFirst({
@@ -246,23 +249,30 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
       return res.status(400).json({ error: "User não encontrado" })
     }
 
-    const userUpdateData = { email }
+    // 🔹 atualizar só campos do user que vierem definidos
+    const userData = {}
+
+    if (typeof email === "string") {
+      userData.email = email
+    }
 
     const isPasswordBeingChanged =
       typeof password === "string" && password.trim() !== ""
 
     if (isPasswordBeingChanged) {
       const hashed = await bcrypt.hash(password, 10)
-      userUpdateData.password = hashed
+      userData.password = hashed
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: existingUser.id },
-      data: userUpdateData
-    })
+    if (Object.keys(userData).length > 0) {
+      const updatedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: userData
+      })
 
-    if (isPasswordBeingChanged) {
-      await sendPasswordChangedEmail(updatedUser.email)
+      if (isPasswordBeingChanged) {
+        await sendPasswordChangedEmail(updatedUser.email)
+      }
     }
 
     res.json({ success: true })
