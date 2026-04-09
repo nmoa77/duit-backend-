@@ -14,12 +14,17 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir)
+    const dir = "uploads/avatars"
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    cb(null, dir)
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname)
-    cb(null, `user-${req.user.id}-${Date.now()}${ext}`)
-  },
+    const filename = `avatar-${req.user.id}-${Date.now()}${ext}`
+    cb(null, filename)
+  }
 })
 
 const upload = multer({ storage })
@@ -72,7 +77,7 @@ router.put("/", authRequired, upload.single("avatar"), async (req, res) => {
 }
 
     if (req.file) {
-      data.avatar = `/uploads/avatars/${req.file.filename}`
+      data.avatar = req.file.filename
     }
 
     const updated = await prisma.user.update({
