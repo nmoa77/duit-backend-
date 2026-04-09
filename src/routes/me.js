@@ -77,7 +77,7 @@ router.put("/", authRequired, upload.single("avatar"), async (req, res) => {
 }
 
     if (req.file) {
-      data.avatar = req.file.filename
+      data.avatar = `/uploads/avatars/${req.file.filename}`
     }
 
     const updated = await prisma.user.update({
