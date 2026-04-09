@@ -212,7 +212,7 @@ export async function sendActivationEmail({
     console.log("📤 A enviar email para:", to)
 
     const html = buildEmailTemplate({
-      
+      title: "Área de Cliente",
       content: `
         <p>${clientName ? `Olá ${clientName},` : "Olá,"}</p>
         <p>Foi criada a sua área de cliente DUIT.<br>
