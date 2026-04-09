@@ -212,16 +212,20 @@ export async function sendActivationEmail({
     console.log("📤 A enviar email para:", to)
 
     const html = buildEmailTemplate({
-      title: "Ative a sua conta",
+      title: "A sua área de cliente foi criada",
       content: `
         <p>${clientName ? `Olá ${clientName},` : "Olá,"}</p>
+        <p>Foi criada a sua área de cliente DUIT.<br>
+
+A partir de agora, pode acompanhar os seus pedidos, projetos e toda a comunicação de forma simples e organizada.</p>
         <p>Ative a sua conta:</p>
         <p style="margin-top:20px;">
           <a href="${activationLink}" 
              style="background:#16B3B1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;">
-            Ativar conta
+            Para aceder, basta ativar a sua conta:
           </a>
         </p>
+        <p>Se tiver alguma questão, estamos desse lado.</p>
       `
     })
 
