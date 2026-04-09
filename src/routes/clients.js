@@ -311,46 +311,53 @@ router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
   try {
 
-    await prisma.$transaction(async (tx) => {
+await prisma.$transaction(async (tx) => {
 
-      // 🔥 apagar ticket updates
-      await tx.ticketUpdate.deleteMany({
-        where: {
-          ticket: { clientId: id }
-        }
-      })
+  // 🔥 Subscription Services (PRIMEIRO!)
+  await tx.subscriptionService.deleteMany({
+    where: {
+      subscription: { clientId: id }
+    }
+  })
 
-      // 🔥 apagar tickets
-      await tx.ticket.deleteMany({
-        where: { clientId: id }
-      })
+  // 🔥 Subscriptions
+  await tx.subscription.deleteMany({
+    where: { clientId: id }
+  })
 
-      // 🔥 apagar projetos
-      await tx.project.deleteMany({
-        where: { clientId: id }
-      })
+  // 🔥 Ticket Updates
+  await tx.ticketUpdate.deleteMany({
+    where: {
+      ticket: { clientId: id }
+    }
+  })
 
-      // 🔥 apagar posts (se tiveres)
-      await tx.socialPost.deleteMany({
-        where: { clientId: id }
-      })
+  // 🔥 Tickets
+  await tx.ticket.deleteMany({
+    where: { clientId: id }
+  })
 
-      // 🔥 apagar subscriptions
-      await tx.subscription.deleteMany({
-        where: { clientId: id }
-      })
+  // 🔥 Projetos
+  await tx.project.deleteMany({
+    where: { clientId: id }
+  })
 
-      // 🔥 apagar users
-      await tx.user.deleteMany({
-        where: { clientId: id }
-      })
+  // 🔥 Posts (se existir)
+  await tx.socialPost.deleteMany({
+    where: { clientId: id }
+  })
 
-      // 🔥 finalmente apagar cliente
-      await tx.client.delete({
-        where: { id }
-      })
+  // 🔥 Users
+  await tx.user.deleteMany({
+    where: { clientId: id }
+  })
 
-    })
+  // 🔥 Cliente (FINAL)
+  await tx.client.delete({
+    where: { id }
+  })
+
+})
 
     res.json({ success: true })
 
