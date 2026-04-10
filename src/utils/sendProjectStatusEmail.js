@@ -52,7 +52,7 @@ async function sendEmail({ to, subject, html }) {
     subject,
     htmlContent: html
   }
-
+console.log("📤 A ENVIAR PARA BREVO:", to)
   const response = await fetch(BREVO_URL, {
     method: "POST",
     headers: {
@@ -62,7 +62,7 @@ async function sendEmail({ to, subject, html }) {
     },
     body: JSON.stringify(payload)
   })
-
+console.log("📡 RESPONSE STATUS:", response.status)
   const text = await response.text()
 
   let data
@@ -80,6 +80,7 @@ async function sendEmail({ to, subject, html }) {
   console.log("✅ EMAIL ENVIADO:", data)
   return data
 }
+console.log("📩 RESPONSE BODY:", data)
 
 // =========================
 // EMAILS
