@@ -1,9 +1,9 @@
 import express from "express"
 import prisma from "../prisma.js"
 import { authRequired, requireRole } from "../middleware/auth.js"
-import { 
+import {
   sendProjectStatusEmail,
-  sendProjectCreatedEmail 
+  sendProjectCreatedEmail
 } from "../utils/sendProjectStatusEmail.js"
 
 const router = express.Router()
@@ -21,10 +21,9 @@ function normalizeProjectStatus(status) {
 
 
 // =========================
-// CLIENT
+// CLIENT - LISTA PRÓPRIA
 // =========================
 
-// GET /projects/my/list
 router.get("/my/list", authRequired, async (req, res) => {
   try {
     if (!req.user.clientId) {
@@ -46,27 +45,21 @@ router.get("/my/list", authRequired, async (req, res) => {
 
 
 // =========================
-// LISTAGEM GERAL (🔥 FALTAVA ISTO)
+// LISTAGEM GERAL
 // =========================
 
-// GET /projects
 router.get("/", authRequired, async (req, res) => {
   try {
     let where = {}
 
-    // cliente só vê os seus
     if (req.user.role === "client") {
       where.clientId = req.user.clientId
     }
 
     const projects = await prisma.project.findMany({
       where,
-      include: {
-        client: true
-      },
-      orderBy: {
-        createdAt: "desc"
-      }
+      include: { client: true },
+      orderBy: { createdAt: "desc" }
     })
 
     res.json(projects)
@@ -82,7 +75,6 @@ router.get("/", authRequired, async (req, res) => {
 // DETALHE
 // =========================
 
-// GET /projects/:id
 router.get("/:id", authRequired, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
@@ -94,7 +86,6 @@ router.get("/:id", authRequired, async (req, res) => {
       return res.status(404).json({ error: "Projeto não encontrado" })
     }
 
-    // cliente só pode ver o seu
     if (
       req.user.role === "client" &&
       project.clientId !== req.user.clientId
@@ -112,13 +103,13 @@ router.get("/:id", authRequired, async (req, res) => {
 
 
 // =========================
-// CRIAR
+// CRIAR PROJETO
 // =========================
 
-// POST /projects
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   try {
-   
+    console.log("🔥 CREATE PROJECT")
+
     const {
       name,
       description,
@@ -138,58 +129,50 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
         clientId,
         durationDays: durationDays ? Number(durationDays) : null,
         status: status || "novo"
-      },
-      include: {
-        client: {
-          include: {
-            users: true
-          }
-        }
       }
     })
 
-    // EMAIL
-const users = project.client?.users || []
+    console.log("✅ PROJETO CRIADO:", project.id)
 
-for (const user of users) {
-  if (!user.email) continue
-  if (!user.notificationsEnabled) continue
+    // 🔥 buscar users corretamente (sem depender de include)
+    const users = await prisma.user.findMany({
+      where: { clientId: project.clientId }
+    })
 
-  await sendProjectCreatedEmail({
-    to: user.email,
-    clientName: project.client?.name || project.client?.company || "",
-    projectName: project.name
-  })
-}
+    console.log("👥 USERS ENCONTRADOS:", users.length)
+
+    for (const user of users) {
+      if (!user.email) continue
+      if (!user.notificationsEnabled) continue
+
+      console.log("📤 A enviar email para:", user.email)
+
+      await sendProjectCreatedEmail({
+        to: user.email,
+        clientName: user.name || "",
+        projectName: project.name
+      })
+    }
 
     res.json(project)
 
   } catch (err) {
-    console.error("Erro POST /projects:", err)
+    console.error("❌ ERRO CREATE PROJECT:", err)
     res.status(500).json({ error: "Erro ao criar projeto" })
   }
 })
 
 
 // =========================
-// EDITAR
+// EDITAR PROJETO
 // =========================
 
-// PUT /projects/:id
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
   try {
-   
     const { name, description, clientId, durationDays, status } = req.body
 
     const currentProject = await prisma.project.findUnique({
-      where: { id: req.params.id },
-      include: {
-        client: {
-          include: {
-            users: true
-          }
-        }
-      }
+      where: { id: req.params.id }
     })
 
     if (!currentProject) {
@@ -225,27 +208,32 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
       data: updateData
     })
 
-    // EMAIL STATUS
+    // 🔥 EMAIL STATUS
     if (oldStatus !== newStatus) {
-      const users = currentProject.client?.users || []
 
-     for (const user of users) {
-  if (!user.email) continue
-  if (!user.notificationsEnabled) continue
+      const users = await prisma.user.findMany({
+        where: { clientId: project.clientId }
+      })
 
-  await sendProjectStatusEmail({
-    to: user.email,
-    clientName: currentProject.client?.name || currentProject.client?.company || "",
-    projectName: project.name,
-    status: newStatus
-  })
-}
+      for (const user of users) {
+        if (!user.email) continue
+        if (!user.notificationsEnabled) continue
+
+        console.log("📤 STATUS EMAIL para:", user.email)
+
+        await sendProjectStatusEmail({
+          to: user.email,
+          clientName: user.name || "",
+          projectName: project.name,
+          status: newStatus
+        })
+      }
     }
 
     res.json(project)
 
   } catch (err) {
-    console.error("Erro no PUT /projects:", err)
+    console.error("❌ ERRO UPDATE PROJECT:", err)
     res.status(500).json({ error: "Erro ao atualizar projeto" })
   }
 })
@@ -255,7 +243,6 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 // DELETE
 // =========================
 
-// DELETE /projects/:id
 router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
   try {
     await prisma.project.delete({
@@ -269,6 +256,5 @@ router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
     res.status(500).json({ error: "Erro ao apagar projeto" })
   }
 })
-
 
 export default router
