@@ -118,6 +118,7 @@ router.get("/:id", authRequired, async (req, res) => {
 // POST /projects
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   try {
+    console.log("🔥 CREATE PROJECT ENTROU")
     const {
       name,
       description,
@@ -175,6 +176,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 // PUT /projects/:id
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
   try {
+    console.log("🔥 CREATE PROJECT editou")
     const { name, description, clientId, durationDays, status } = req.body
 
     const currentProject = await prisma.project.findUnique({
