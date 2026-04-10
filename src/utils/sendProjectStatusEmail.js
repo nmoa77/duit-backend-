@@ -177,6 +177,7 @@ export async function sendTicketStatusEmail({
   status,
 }) {
   try {
+    console.log("entrou na parte de envio de edit")
     const html = buildEmailTemplate({
       title: "Atualização do ticket",
       content: `
