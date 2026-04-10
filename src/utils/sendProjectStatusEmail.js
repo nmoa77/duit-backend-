@@ -4,7 +4,7 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 // CONFIG
 // =========================
 
-const BASE_URL = process.env.APP_URL || "http://localhost:5173"
+const BASE_URL = process.env.APP_URL || "http://cliente.duit.pt"
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
 console.log("BREVO CONFIG:", {
