@@ -314,46 +314,48 @@ router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
 await prisma.$transaction(async (tx) => {
 
-  // 🔥 Subscription Services (PRIMEIRO!)
+  // 🔥 1. SOCIAL POSTS (depende de subscription)
+  await tx.socialPost.deleteMany({
+    where: {
+      clientId: id
+    }
+  })
+
+  // 🔥 2. Subscription Services
   await tx.subscriptionService.deleteMany({
     where: {
       subscription: { clientId: id }
     }
   })
 
-  // 🔥 Subscriptions
+  // 🔥 3. Subscriptions
   await tx.subscription.deleteMany({
     where: { clientId: id }
   })
 
-  // 🔥 Ticket Updates
+  // 🔥 4. Ticket Updates
   await tx.ticketUpdate.deleteMany({
     where: {
       ticket: { clientId: id }
     }
   })
 
-  // 🔥 Tickets
+  // 🔥 5. Tickets
   await tx.ticket.deleteMany({
     where: { clientId: id }
   })
 
-  // 🔥 Projetos
+  // 🔥 6. Projetos
   await tx.project.deleteMany({
     where: { clientId: id }
   })
 
-  // 🔥 Posts (se existir)
-  await tx.socialPost.deleteMany({
-    where: { clientId: id }
-  })
-
-  // 🔥 Users
+  // 🔥 7. Users
   await tx.user.deleteMany({
     where: { clientId: id }
   })
 
-  // 🔥 Cliente (FINAL)
+  // 🔥 8. Cliente (FINAL)
   await tx.client.delete({
     where: { id }
   })
