@@ -216,7 +216,12 @@ for (const [, weekDays] of weeks) {
   if (postsPerWeek === 7) {
     chosen = weekDays
   } else {
-    const preferred = weekdayPick ? weekDays.filter(x => weekdayPick.includes(x.weekday)) : []
+    const preferred = weekdayPick
+  ? weekDays.filter(x => {
+      const isoDay = (x.weekday + 6) % 7
+      return weekdayPick.includes(isoDay)
+    })
+  : []
     const remaining = weekDays.filter(x => !preferred.includes(x))
 
     if (preferred.length) chosen = shuffle(preferred).slice(0, Math.min(postsPerWeek, preferred.length))
