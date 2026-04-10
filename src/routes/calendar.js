@@ -196,12 +196,10 @@ for (let day = 1; day <= totalDays; day++) {
 const weeks = new Map()
 
 for (const d of monthDays) {
-  // isoWeekday: 0=Seg ... 6=Dom
-  const isoWeekday = (d.weekday + 6) % 7
 
-  // chave da semana = data (YYYY-MM-DD) da segunda-feira dessa semana
   const monday = new Date(d.dt)
-  monday.setUTCDate(monday.getUTCDate() - isoWeekday)
+  monday.setUTCDate(monday.getUTCDate() - d.isoWeekday)
+
   const weekKey = monday.toISOString().slice(0, 10)
 
   if (!weeks.has(weekKey)) weeks.set(weekKey, [])
