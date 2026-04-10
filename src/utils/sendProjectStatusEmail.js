@@ -130,7 +130,7 @@ export async function sendProjectCreatedEmail({
         <p><strong>${projectName}</strong></p>
 
         <p style="margin-top:20px;">
-          <a href="${BASE_URL}/client/projects" 
+          <a href="${BASE_URL}/projects" 
              style="background:#16B3B1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;">
             Ver projeto
           </a>
@@ -295,7 +295,7 @@ export async function sendTicketReplyEmail({
         <p>${message}</p>
 
         <p style="margin-top:20px;">
-          <a href="${BASE_URL}/client/tickets"
+          <a href="${BASE_URL}/tickets"
              style="background:#16B3B1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;">
             Ver ticket
           </a>
