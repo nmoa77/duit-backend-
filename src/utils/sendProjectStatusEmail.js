@@ -33,8 +33,7 @@ const TICKET_STATUS_LABEL = {
 // =========================
 
 async function sendEmail({ to, subject, html }) {
-  console.log("🔑 BREVO:", process.env.BREVO_API_KEY)
-console.log("📧 FROM:", process.env.SMTP_FROM)
+
   
   if (!process.env.BREVO_API_KEY) {
     throw new Error("BREVO_API_KEY não definida")
@@ -93,6 +92,8 @@ export async function sendProjectStatusEmail({
   status
 }) {
   try {
+      console.log("🔑 BREVO:", process.env.BREVO_API_KEY)
+console.log("📧 FROM:", process.env.SMTP_FROM)
     const html = buildEmailTemplate({
       title: "Atualização do projeto",
       content: `
