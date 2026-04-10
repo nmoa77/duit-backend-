@@ -4,10 +4,10 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 // CONFIG
 // =========================
 
-const BASE_URL = process.env.APP_URL 
+const BASE_URL = process.env.APP_URL || "https://cliente.duit.pt"
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
-
+console.log("APP_URL:", process.env.APP_URL)
 
 // =========================
 // LABELS
@@ -33,8 +33,6 @@ const TICKET_STATUS_LABEL = {
 // =========================
 
 async function sendEmail({ to, subject, html }) {
-
-  
   if (!process.env.BREVO_API_KEY) {
     throw new Error("BREVO_API_KEY não definida")
   }
@@ -52,7 +50,7 @@ async function sendEmail({ to, subject, html }) {
     subject,
     htmlContent: html
   }
-console.log("📤 A ENVIAR PARA BREVO:", to)
+
   const response = await fetch(BREVO_URL, {
     method: "POST",
     headers: {
@@ -62,7 +60,7 @@ console.log("📤 A ENVIAR PARA BREVO:", to)
     },
     body: JSON.stringify(payload)
   })
-console.log("📡 RESPONSE STATUS:", response.status)
+
   const text = await response.text()
 
   let data
@@ -80,7 +78,6 @@ console.log("📡 RESPONSE STATUS:", response.status)
   console.log("✅ EMAIL ENVIADO:", data)
   return data
 }
-console.log("📩 RESPONSE BODY:", data)
 
 // =========================
 // EMAILS
@@ -93,8 +90,6 @@ export async function sendProjectStatusEmail({
   status
 }) {
   try {
-      console.log("🔑 BREVO:", process.env.BREVO_API_KEY)
-console.log("📧 FROM:", process.env.SMTP_FROM)
     const html = buildEmailTemplate({
       title: "Atualização do projeto",
       content: `
@@ -274,7 +269,6 @@ export async function sendResetPasswordEmail({
     })
 
     console.log("✅ Email reset enviado:", to)
-
   } catch (err) {
     console.error("❌ Erro sendResetPasswordEmail:", err)
   }
