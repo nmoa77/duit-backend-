@@ -149,16 +149,18 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
     })
 
     // EMAIL
-    project.client?.users?.forEach(user => {
-      if (!user.email) return
-      if (!user.notificationsEnabled) return
+const users = project.client?.users || []
 
-      sendProjectCreatedEmail({
-        to: user.email,
-        clientName: project.client?.name || project.client?.company || "",
-        projectName: project.name
-      })
-    })
+for (const user of users) {
+  if (!user.email) continue
+  if (!user.notificationsEnabled) continue
+
+  await sendProjectCreatedEmail({
+    to: user.email,
+    clientName: project.client?.name || project.client?.company || "",
+    projectName: project.name
+  })
+}
 
     res.json(project)
 
@@ -227,17 +229,17 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
     if (oldStatus !== newStatus) {
       const users = currentProject.client?.users || []
 
-      users.forEach(user => {
-        if (!user.email) return
-        if (!user.notificationsEnabled) return
+     for (const user of users) {
+  if (!user.email) continue
+  if (!user.notificationsEnabled) continue
 
-        sendProjectStatusEmail({
-          to: user.email,
-          clientName: currentProject.client?.name || currentProject.client?.company || "",
-          projectName: project.name,
-          status: newStatus
-        })
-      })
+  await sendProjectStatusEmail({
+    to: user.email,
+    clientName: currentProject.client?.name || currentProject.client?.company || "",
+    projectName: project.name,
+    status: newStatus
+  })
+}
     }
 
     res.json(project)
