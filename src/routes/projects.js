@@ -4,7 +4,7 @@ import { authRequired, requireRole } from "../middleware/auth.js"
 import { 
   sendProjectStatusEmail,
   sendProjectCreatedEmail 
-} from "utils/sendProjectStatusEmail.js"
+} from "../utils/sendProjectStatusEmail.js"
 
 const router = express.Router()
 
