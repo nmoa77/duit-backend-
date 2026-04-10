@@ -24,7 +24,7 @@ const app = express()
 // ✅ CORS
 
 app.use(cors({
-  origin: "https://duit.pt",
+  origin: "https://cliente.duit.pt",
   credentials: true
 }))
 
