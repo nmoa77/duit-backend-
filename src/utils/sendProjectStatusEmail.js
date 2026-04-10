@@ -7,7 +7,7 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 const BASE_URL = process.env.APP_URL 
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
-console.log("APP_URL:", process.env.APP_URL)
+
 
 // =========================
 // LABELS
@@ -33,6 +33,9 @@ const TICKET_STATUS_LABEL = {
 // =========================
 
 async function sendEmail({ to, subject, html }) {
+  console.log("🔑 BREVO:", process.env.BREVO_API_KEY)
+console.log("📧 FROM:", process.env.SMTP_FROM)
+  
   if (!process.env.BREVO_API_KEY) {
     throw new Error("BREVO_API_KEY não definida")
   }
