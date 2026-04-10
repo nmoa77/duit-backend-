@@ -50,7 +50,8 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
           email,
           role: "client",
           clientId: client.id,
-          activationToken: token
+          activationToken: token,
+          notificationsEnabled: true 
         }
       })
 

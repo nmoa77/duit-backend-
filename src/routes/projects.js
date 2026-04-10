@@ -143,7 +143,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 
     for (const user of users) {
       if (!user.email) continue
-      if (!user.notificationsEnabled) continue
+     if (user.notificationsEnabled === false) continue
 
       console.log("📤 A enviar email para:", user.email)
 
