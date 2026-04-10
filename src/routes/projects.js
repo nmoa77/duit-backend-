@@ -152,7 +152,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
     project.client?.users?.forEach(user => {
       if (!user.email) return
       if (!user.notificationsEnabled) return
-
+console.log("📤 A ENTRAR NO BLOCO DE EMAIL")
       sendProjectCreatedEmail({
         to: user.email,
         clientName: project.client?.name || project.client?.company || "",
@@ -226,7 +226,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
     // EMAIL STATUS
     if (oldStatus !== newStatus) {
       const users = currentProject.client?.users || []
-
+console.log("📤 A ENTRAR NO BLOCO DE EMAIL")
       users.forEach(user => {
         if (!user.email) return
         if (!user.notificationsEnabled) return
