@@ -58,7 +58,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
     })
 
     // 🔗 link produção
-    const link = `${process.env.APP_URL}/cliente/set-password?token=${token}`
+    const link = `${process.env.APP_URL}/set-password?token=${token}`
 
     console.log("📩 NOVO CLIENTE - EMAIL:", email)
 
@@ -130,7 +130,7 @@ router.post("/:id/activate", async (req, res) => {
       })
     }
 
-    const link = `${process.env.APP_URL}/cliente/set-password?token=${token}`
+    const link = `${process.env.APP_URL}/set-password?token=${token}`
 
 
 
