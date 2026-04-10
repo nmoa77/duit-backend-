@@ -7,11 +7,7 @@ import { buildEmailTemplate } from "./emailTemplate.js"
 const BASE_URL = process.env.APP_URL || "http://cliente.duit.pt"
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
-console.log("BREVO CONFIG:", {
-  from: process.env.SMTP_FROM,
-  appUrl: process.env.APP_URL,
-  hasApiKey: Boolean(process.env.BREVO_API_KEY)
-})
+console.log("APP_URL:", process.env.APP_URL)
 
 // =========================
 // LABELS
