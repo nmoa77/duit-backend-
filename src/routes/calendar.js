@@ -176,15 +176,19 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
 
   // construir dias do mês
   const totalDays = daysInMonthUTC(year, month)
-  const monthDays = []
-  for (let day = 1; day <= totalDays; day++) {
-    const dt = dateUTCNoon(year, month, day)
-    monthDays.push({
-      day,
-      dt,
-      weekday: dt.getUTCDay() // 0..6 Dom..Sáb
-    })
-  }
+const monthDays = []
+for (let day = 1; day <= totalDays; day++) {
+  const dt = dateUTCNoon(year, month, day)
+
+  const jsWeekday = dt.getUTCDay() // 0..6 Dom..Sáb
+  const isoWeekday = (jsWeekday + 6) % 7 // 0..6 Seg..Dom
+
+  monthDays.push({
+    day,
+    dt,
+    isoWeekday // 👈 USAR ISTO SEMPRE
+  })
+}
 
   // agrupar por semanas Dom..Sáb dentro do mês
 // converter Dom..Sáb (0..6) para Seg..Dom (0..6)
@@ -216,11 +220,8 @@ for (const [, weekDays] of weeks) {
   if (postsPerWeek === 7) {
     chosen = weekDays
   } else {
-    const preferred = weekdayPick
-  ? weekDays.filter(x => {
-      const isoDay = (x.weekday + 6) % 7
-      return weekdayPick.includes(isoDay)
-    })
+  const preferred = weekdayPick
+  ? weekDays.filter(x => weekdayPick.includes(x.isoWeekday))
   : []
     const remaining = weekDays.filter(x => !preferred.includes(x))
 
