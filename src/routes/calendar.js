@@ -23,8 +23,11 @@ function daysInMonthUTC(year, month1to12) {
 
 function normalizeWeekdays(arr) {
   if (!Array.isArray(arr)) return null
-  const ok = arr.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
-  return ok.length ? Array.from(new Set(ok)) : null
+
+  return arr
+    .map(Number)
+    .map(n => (n === 7 ? 6 : n - 1)) // 🔥 converter 1-7 → 0-6
+    .filter(n => n >= 0 && n <= 6)
 }
 
 // usamos “meio-dia UTC” para evitar DST / horas inválidas
@@ -203,8 +206,7 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
   }
 
   // 🔥 LIMITAR QUANTIDADE (baseado no plano)
-  const maxPosts = postsPerWeek * 4
-  const finalSelection = shuffle(toCreateDates).slice(0, maxPosts)
+ const finalSelection = toCreateDates
 
   // 🔥 REMOVER DUPLICADOS
   const uniq = new Map()
