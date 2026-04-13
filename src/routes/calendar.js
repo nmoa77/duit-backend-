@@ -154,28 +154,16 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
     return res.status(400).json({ message: "subscriptionId é obrigatório" })
   }
 
-  if (month < 1 || month > 12) {
-    return res.status(400).json({ message: "month inválido (1..12)" })
-  }
-
   const sub = await prisma.subscription.findUnique({
     where: { id: subscriptionId },
     include: { client: true, mediaPlan: true }
   })
 
-  if (!sub) {
-    return res.status(404).json({ message: "Subscrição não encontrada" })
-  }
-
-  if (!sub.mediaPlan) {
-    return res.status(400).json({ message: "Subscrição sem plano associado" })
+  if (!sub || !sub.mediaPlan) {
+    return res.status(400).json({ message: "Subscrição inválida" })
   }
 
   const postsPerWeek = Number(sub.mediaPlan.periodDays || 0)
-
-  if (!postsPerWeek || postsPerWeek < 1 || postsPerWeek > 7) {
-    return res.status(400).json({ message: "mediaPlan.periodDays inválido (1..7)" })
-  }
 
   const from = startOfMonthUTC(year, month)
   const to = endOfMonthExclusiveUTC(year, month)
@@ -192,57 +180,46 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
     existing.map(e => e.scheduledFor.toISOString().slice(0, 10))
   )
 
-  // construir dias do mês com ISO weekday: 0=Seg ... 6=Dom
+  // 🔥 DIAS DO MÊS COM ISO WEEKDAY
   const totalDays = daysInMonthUTC(year, month)
   const monthDays = []
 
   for (let day = 1; day <= totalDays; day++) {
     const dt = dateUTCNoon(year, month, day)
-    const isoWeekday = (dt.getUTCDay() + 6) % 7
 
     monthDays.push({
-      day,
       dt,
-      isoWeekday
+      isoWeekday: (dt.getUTCDay() + 6) % 7 // 0=Seg ... 6=Dom
     })
   }
 
-  // agrupar por semanas ISO (Seg..Dom)
+  // 🔥 AGRUPAR POR SEMANAS ISO
   const weeks = new Map()
 
   for (const d of monthDays) {
     const monday = new Date(d.dt)
     monday.setUTCDate(monday.getUTCDate() - d.isoWeekday)
-    const weekKey = monday.toISOString().slice(0, 10)
+    monday.setUTCHours(0, 0, 0, 0)
 
-    if (!weeks.has(weekKey)) weeks.set(weekKey, [])
-    weeks.get(weekKey).push(d)
+    const key = monday.toISOString()
+
+    if (!weeks.has(key)) weeks.set(key, [])
+    weeks.get(key).push(d)
   }
 
   const toCreateDates = []
 
   for (const [, weekDays] of weeks) {
-    weekDays.sort((a, b) => a.dt - b.dt)
-
     let chosen = []
 
-    // se o plano for 7, leva todos os dias disponíveis da semana
     if (postsPerWeek === 7) {
-      chosen = [...weekDays]
+      chosen = weekDays
     } else {
-      // 1) primeiro tenta usar só os dias escolhidos no frontend
-     const preferred = weekdayPick
-  ? weekDays.filter(x => {
-      const isoWeekday = (x.weekday + 6) % 7 // 🔥 converter Dom..Sáb → Seg..Dom
-      return weekdayPick.includes(isoWeekday)
-    })
-  : []
+      const preferred = weekdayPick
+        ? weekDays.filter(d => weekdayPick.includes(d.isoWeekday))
+        : []
 
-      // 2) se não chegar, completa com os restantes dias da semana
-   const remaining = weekDays.filter(x => {
-  const isoWeekday = (x.weekday + 6) % 7
-  return !weekdayPick?.includes(isoWeekday)
-})
+      const remaining = weekDays.filter(d => !preferred.includes(d))
 
       chosen = shuffle(preferred).slice(0, postsPerWeek)
 
@@ -257,7 +234,7 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
     }
   }
 
-  // remover duplicados e datas já existentes
+  // remover duplicados
   const uniq = new Map()
   for (const d of toCreateDates) {
     uniq.set(d.toISOString().slice(0, 10), d)
@@ -293,7 +270,6 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
 
   res.json({ created, posts })
 })
-
 /**
  * PATCH /calendar/:id
  * body: { status }
