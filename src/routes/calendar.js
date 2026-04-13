@@ -298,6 +298,7 @@ router.patch("/:id", authRequired, requireRole("admin"), async (req, res) => {
  */
 // 1️⃣ BULK PRIMEIRO
 router.delete("/bulk", authRequired, requireRole("admin"), async (req, res) => {
+    console.log("BODY:", req.body)
   try {
     const { subscriptionId, year, month, mode } = req.body
 
