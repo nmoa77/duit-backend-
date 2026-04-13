@@ -168,6 +168,7 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
   const from = startOfMonthUTC(year, month)
   const to = endOfMonthExclusiveUTC(year, month)
 
+  // 🔍 evitar duplicados
   const existing = await prisma.socialPost.findMany({
     where: {
       subscriptionId,
@@ -180,7 +181,7 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
     existing.map(e => e.scheduledFor.toISOString().slice(0, 10))
   )
 
-  // 🔥 DIAS DO MÊS COM ISO WEEKDAY
+  // 🔥 DIAS DO MÊS (ISO weekday: 0=Seg ... 6=Dom)
   const totalDays = daysInMonthUTC(year, month)
   const monthDays = []
 
@@ -189,60 +190,33 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
 
     monthDays.push({
       dt,
-      isoWeekday: (dt.getUTCDay() + 6) % 7 // 0=Seg ... 6=Dom
+      isoWeekday: (dt.getUTCDay() + 6) % 7
     })
   }
 
-  // 🔥 AGRUPAR POR SEMANAS ISO
-  const weeks = new Map()
-
-  for (const d of monthDays) {
-    const monday = new Date(d.dt)
-    monday.setUTCDate(monday.getUTCDate() - d.isoWeekday)
-    monday.setUTCHours(0, 0, 0, 0)
-
-    const key = monday.toISOString()
-
-    if (!weeks.has(key)) weeks.set(key, [])
-    weeks.get(key).push(d)
-  }
-
+  // 🔥 FILTRAR DIAS (respeitar escolha do utilizador)
   const toCreateDates = []
 
-  for (const [, weekDays] of weeks) {
-    let chosen = []
-
-    if (postsPerWeek === 7) {
-      chosen = weekDays
-    } else {
-      const preferred = weekdayPick
-        ? weekDays.filter(d => weekdayPick.includes(d.isoWeekday))
-        : []
-
-      const remaining = weekDays.filter(d => !preferred.includes(d))
-
-      chosen = shuffle(preferred).slice(0, postsPerWeek)
-
-      if (chosen.length < postsPerWeek) {
-        const need = postsPerWeek - chosen.length
-        chosen = [...chosen, ...shuffle(remaining).slice(0, need)]
-      }
-    }
-
-    for (const c of chosen) {
-      toCreateDates.push(c.dt)
-    }
+  for (const d of monthDays) {
+    if (weekdayPick && !weekdayPick.includes(d.isoWeekday)) continue
+    toCreateDates.push(d.dt)
   }
 
-  // remover duplicados
+  // 🔥 LIMITAR QUANTIDADE (baseado no plano)
+  const maxPosts = postsPerWeek * 4
+  const finalSelection = shuffle(toCreateDates).slice(0, maxPosts)
+
+  // 🔥 REMOVER DUPLICADOS
   const uniq = new Map()
-  for (const d of toCreateDates) {
-    uniq.set(d.toISOString().slice(0, 10), d)
+
+  for (const d of finalSelection) {
+    const key = d.toISOString().slice(0, 10)
+    if (!existingSet.has(key)) {
+      uniq.set(key, d)
+    }
   }
 
-  const finalDates = [...uniq.values()]
-    .filter(d => !existingSet.has(d.toISOString().slice(0, 10)))
-    .sort((a, b) => a - b)
+  const finalDates = [...uniq.values()].sort((a, b) => a - b)
 
   let created = 0
 
