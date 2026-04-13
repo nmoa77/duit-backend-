@@ -150,17 +150,29 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
   const month = clampInt(req.body.month, new Date().getUTCMonth() + 1)
   const weekdayPick = normalizeWeekdays(req.body.weekdays)
 
-  if (!subscriptionId) return res.status(400).json({ message: "subscriptionId é obrigatório" })
-  if (month < 1 || month > 12) return res.status(400).json({ message: "month inválido (1..12)" })
+  if (!subscriptionId) {
+    return res.status(400).json({ message: "subscriptionId é obrigatório" })
+  }
+
+  if (month < 1 || month > 12) {
+    return res.status(400).json({ message: "month inválido (1..12)" })
+  }
 
   const sub = await prisma.subscription.findUnique({
     where: { id: subscriptionId },
     include: { client: true, mediaPlan: true }
   })
-  if (!sub) return res.status(404).json({ message: "Subscrição não encontrada" })
-  if (!sub.mediaPlan) return res.status(400).json({ message: "Subscrição sem plano associado" })
+
+  if (!sub) {
+    return res.status(404).json({ message: "Subscrição não encontrada" })
+  }
+
+  if (!sub.mediaPlan) {
+    return res.status(400).json({ message: "Subscrição sem plano associado" })
+  }
 
   const postsPerWeek = Number(sub.mediaPlan.periodDays || 0)
+
   if (!postsPerWeek || postsPerWeek < 1 || postsPerWeek > 7) {
     return res.status(400).json({ message: "mediaPlan.periodDays inválido (1..7)" })
   }
@@ -169,81 +181,95 @@ router.post("/generate", authRequired, requireRole("admin"), async (req, res) =>
   const to = endOfMonthExclusiveUTC(year, month)
 
   const existing = await prisma.socialPost.findMany({
-    where: { subscriptionId, scheduledFor: { gte: from, lt: to } },
+    where: {
+      subscriptionId,
+      scheduledFor: { gte: from, lt: to }
+    },
     select: { scheduledFor: true }
   })
-  const existingSet = new Set(existing.map(e => e.scheduledFor.toISOString().slice(0, 10)))
 
-  // construir dias do mês
+  const existingSet = new Set(
+    existing.map(e => e.scheduledFor.toISOString().slice(0, 10))
+  )
+
+  // construir dias do mês com ISO weekday: 0=Seg ... 6=Dom
   const totalDays = daysInMonthUTC(year, month)
-const monthDays = []
-for (let day = 1; day <= totalDays; day++) {
-  const dt = dateUTCNoon(year, month, day)
+  const monthDays = []
 
-  const jsWeekday = dt.getUTCDay() // 0..6 Dom..Sáb
-  const isoWeekday = (jsWeekday + 6) % 7 // 0..6 Seg..Dom
+  for (let day = 1; day <= totalDays; day++) {
+    const dt = dateUTCNoon(year, month, day)
+    const isoWeekday = (dt.getUTCDay() + 6) % 7
 
-  monthDays.push({
-    day,
-    dt,
-    isoWeekday // 👈 USAR ISTO SEMPRE
-  })
-}
+    monthDays.push({
+      day,
+      dt,
+      isoWeekday
+    })
+  }
 
-  // agrupar por semanas Dom..Sáb dentro do mês
-// converter Dom..Sáb (0..6) para Seg..Dom (0..6)
-// agrupar por semanas ISO (Seg..Dom) para bater certo com o calendário UI
-const weeks = new Map()
+  // agrupar por semanas ISO (Seg..Dom)
+  const weeks = new Map()
 
-for (const d of monthDays) {
+  for (const d of monthDays) {
+    const monday = new Date(d.dt)
+    monday.setUTCDate(monday.getUTCDate() - d.isoWeekday)
+    const weekKey = monday.toISOString().slice(0, 10)
 
-  const monday = new Date(d.dt)
-  monday.setUTCDate(monday.getUTCDate() - d.isoWeekday)
-
-  const weekKey = monday.toISOString().slice(0, 10)
-
-  if (!weeks.has(weekKey)) weeks.set(weekKey, [])
-  weeks.get(weekKey).push(d)
-}
+    if (!weeks.has(weekKey)) weeks.set(weekKey, [])
+    weeks.get(weekKey).push(d)
+  }
 
   const toCreateDates = []
 
-for (const [, weekDays] of weeks) {
-  // ordenar por dia do mês só para ficar consistente
-  weekDays.sort((a, b) => a.dt - b.dt)
+  for (const [, weekDays] of weeks) {
+    weekDays.sort((a, b) => a.dt - b.dt)
 
-  let chosen = []
+    let chosen = []
 
-  // ✅ se o plano é 7, esta semana ISO tem de levar TODOS os dias disponíveis
-  if (postsPerWeek === 7) {
-    chosen = weekDays
-  } else {
-  const preferred = weekdayPick
-  ? weekDays.filter(x => weekdayPick.includes(x.isoWeekday))
+    // se o plano for 7, leva todos os dias disponíveis da semana
+    if (postsPerWeek === 7) {
+      chosen = [...weekDays]
+    } else {
+      // 1) primeiro tenta usar só os dias escolhidos no frontend
+     const preferred = weekdayPick
+  ? weekDays.filter(x => {
+      const isoWeekday = (x.weekday + 6) % 7 // 🔥 converter Dom..Sáb → Seg..Dom
+      return weekdayPick.includes(isoWeekday)
+    })
   : []
-    const remaining = weekDays.filter(x => !preferred.includes(x))
 
-    if (preferred.length) chosen = shuffle(preferred).slice(0, Math.min(postsPerWeek, preferred.length))
-    if (chosen.length < postsPerWeek) {
-      const need = postsPerWeek - chosen.length
-      chosen = [...chosen, ...shuffle(remaining).slice(0, Math.min(need, remaining.length))]
+      // 2) se não chegar, completa com os restantes dias da semana
+   const remaining = weekDays.filter(x => {
+  const isoWeekday = (x.weekday + 6) % 7
+  return !weekdayPick?.includes(isoWeekday)
+})
+
+      chosen = shuffle(preferred).slice(0, postsPerWeek)
+
+      if (chosen.length < postsPerWeek) {
+        const need = postsPerWeek - chosen.length
+        chosen = [...chosen, ...shuffle(remaining).slice(0, need)]
+      }
+    }
+
+    for (const c of chosen) {
+      toCreateDates.push(c.dt)
     }
   }
 
-  for (const c of chosen) toCreateDates.push(c.dt)
-}
-
-  // dedupe + remove existentes
+  // remover duplicados e datas já existentes
   const uniq = new Map()
-  for (const d of toCreateDates) uniq.set(d.toISOString().slice(0, 10), d)
+  for (const d of toCreateDates) {
+    uniq.set(d.toISOString().slice(0, 10), d)
+  }
 
   const finalDates = [...uniq.values()]
     .filter(d => !existingSet.has(d.toISOString().slice(0, 10)))
     .sort((a, b) => a - b)
 
   let created = 0
+
   if (finalDates.length) {
-    // createMany sem skipDuplicates (para evitar o teu erro)
     await prisma.socialPost.createMany({
       data: finalDates.map(d => ({
         subscriptionId,
@@ -252,11 +278,15 @@ for (const [, weekDays] of weeks) {
         status: "novo"
       }))
     })
+
     created = finalDates.length
   }
 
   const posts = await prisma.socialPost.findMany({
-    where: { subscriptionId, scheduledFor: { gte: from, lt: to } },
+    where: {
+      subscriptionId,
+      scheduledFor: { gte: from, lt: to }
+    },
     include: { client: true },
     orderBy: { scheduledFor: "asc" }
   })
