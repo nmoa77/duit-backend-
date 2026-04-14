@@ -66,22 +66,36 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   }
 })
 
-// UPDATE STATUS
-router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  try {
-    const { status } = req.body
+// UPDATE POST
+router.put("/:id", async (req, res) => {
+  const { id } = req.params
+  const { content, status, scheduledFor } = req.body
 
-    const updated = await prisma.socialPost.update({
-      where: { id: req.params.id },
-      data: { status }
-    })
+  const updated = await prisma.socialPost.update({
+    where: { id },
+    data: {
+      content,
+      status,
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+    },
+  })
 
-    res.json(updated)
+  res.json(updated)
+})
 
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: "Erro ao atualizar post" })
-  }
+// CLIENT SUGGESTION
+router.post("/:id/suggestion", async (req, res) => {
+  const { id } = req.params
+  const { suggestion } = req.body
+
+  const updated = await prisma.socialPost.update({
+    where: { id },
+    data: {
+      clientSuggestion: suggestion,
+    },
+  })
+
+  res.json(updated)
 })
 
 export default router
