@@ -18,7 +18,7 @@ import clientProjectNotesRoutes from "./routes/client-project-notes.js"
 import clientSubscriptionsRoutes from "./routes/client-subscriptions.js"
 
 import { authRequired } from "./middleware/auth.js"
-console.log("CALENDAR SUB:", subscriptionId)
+
 const app = express()
 
 // ✅ CORS
@@ -56,5 +56,6 @@ app.use("/uploads", express.static("uploads"))
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT, () => {
+  console.log("CALENDAR SUB:", subscriptionId)
   console.log(`Backend a correr na porta ${PORT}`)
 })
