@@ -20,16 +20,19 @@ router.get("/month", async (req, res) => {
 
     console.log("🔎 RANGE:", start, end)
 
-    const posts = await prisma.socialPost.findMany({
-      where: {
-        subscriptionId,
-        scheduledFor: {
-          gte: start,
-          lte: end,
-        },
-      },
-      orderBy: { scheduledFor: "asc" },
-    })
+const posts = await prisma.socialPost.findMany({
+  where: {
+    ...(subscriptionId !== "all" && { subscriptionId }),
+    scheduledFor: {
+      gte: start,
+      lte: end,
+    },
+  },
+  include: {
+    client: true
+  },
+  orderBy: { scheduledFor: "asc" },
+})
 
     console.log("📊 POSTS FOUND:", posts.length)
 
