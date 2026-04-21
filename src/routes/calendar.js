@@ -153,8 +153,8 @@ router.delete("/bulk", async (req, res) => {
   try {
     const { subscriptionId, year, month } = req.body
 
-    const start = new Date(year, month - 1, 1)
-    const end = new Date(year, month, 0)
+    const start = new Date(Date.UTC(year, month - 1, 1))
+const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
     const result = await prisma.socialPost.deleteMany({
       where: {
