@@ -58,26 +58,17 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing params" })
     }
 
-   const sub = await prisma.subscription.findUnique({
-  where: { id: subscriptionId },
-  include: { client: true }
-})
+    // 🔥 buscar subscription + client
+    const sub = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { client: true, mediaPlan: true },
+    })
 
-if (!sub) {
-  return res.status(404).json({ error: "Subscrição não encontrada" })
-}
-
-for (const post of toCreate) {
-  await prisma.socialPost.create({
-    data: {
-      subscriptionId: sub.id,
-      clientId: sub.clientId, // 🔥 ESTE É O FIX
-      scheduledFor: new Date(post.scheduledFor),
-      status: "novo",
+    if (!sub) {
+      return res.status(404).json({ error: "Subscrição não encontrada" })
     }
-  })
-}
 
+    // 🔥 posts por semana
     const postsPerWeek = Math.max(
       1,
       Math.round((sub.mediaPlan?.postsPerMonth || 4) / 4)
@@ -88,16 +79,19 @@ for (const post of toCreate) {
     const start = new Date(year, month - 1, 1)
     const end = new Date(year, month, 0)
 
+    // 🔥 criar lista de dias
     const days = []
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       days.push(new Date(d))
     }
 
+    // 🔥 dividir por semanas
     const weeks = []
     for (let i = 0; i < days.length; i += 7) {
       weeks.push(days.slice(i, i + 7))
     }
 
+    // 🔥 criar array de posts
     const toCreate = []
 
     for (const week of weeks) {
@@ -112,8 +106,9 @@ for (const post of toCreate) {
 
       for (const d of selected) {
         toCreate.push({
-          subscriptionId,
-          scheduledFor: d,
+          subscriptionId: sub.id,
+          clientId: sub.clientId, // 🔥 FIX PRINCIPAL
+          scheduledFor: new Date(d),
           status: "novo",
         })
       }
@@ -121,17 +116,19 @@ for (const post of toCreate) {
 
     console.log("🧠 posts to create:", toCreate.length)
 
-  console.log("🧠 FINAL DATA:", toCreate)
-
-for (const post of toCreate) {
-  await prisma.socialPost.create({
-    data: {
-      subscriptionId: post.subscriptionId,
-      scheduledFor: new Date(post.scheduledFor),
-      status: "novo",
+    // 🔥 criar posts (sem rebentar duplicados)
+    for (const post of toCreate) {
+      try {
+        await prisma.socialPost.create({
+          data: post
+        })
+      } catch (err) {
+        // ignora duplicados
+        if (err.code !== "P2002") {
+          console.error("❌ CREATE ERROR:", err)
+        }
+      }
     }
-  })
-}
 
     return res.json({
       ok: true,
