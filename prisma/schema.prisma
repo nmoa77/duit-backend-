@@ -118,7 +118,9 @@ model SocialPost {
   subscriptionId String
 
   scheduledFor DateTime
-  status       String   @default("novo") // novo|agendado|publicado|cancelado
+  status       String   @default("novo")
+
+  content String?   // 👈 ADICIONA ISTO
 
   createdAt DateTime @default(now())
 
@@ -126,7 +128,6 @@ model SocialPost {
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
   @@unique([subscriptionId, scheduledFor])
-  @@index([subscriptionId, scheduledFor])
 }
 
 model Ticket {
