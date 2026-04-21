@@ -246,4 +246,21 @@ router.delete("/:id", async (req, res) => {
 })
 
 
+router.delete("/subscription/:subscriptionId", async (req, res) => {
+  try {
+    const { subscriptionId } = req.params
+
+    await prisma.calendarPost.deleteMany({
+      where: { subscriptionId }
+    })
+
+    res.json({ success: true })
+
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: "Erro ao apagar posts" })
+  }
+})
+
+
 export default router
