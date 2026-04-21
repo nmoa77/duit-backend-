@@ -110,10 +110,17 @@ router.post("/generate", async (req, res) => {
 
     console.log("🧠 posts to create:", toCreate.length)
 
-    await prisma.socialPost.createMany({
-      data: toCreate,
-      skipDuplicates: true,
-    })
+  console.log("🧠 FINAL DATA:", toCreate)
+
+for (const post of toCreate) {
+  await prisma.socialPost.create({
+    data: {
+      subscriptionId: post.subscriptionId,
+      scheduledFor: new Date(post.scheduledFor),
+      status: "novo",
+    }
+  })
+}
 
     return res.json({
       ok: true,
