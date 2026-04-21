@@ -56,6 +56,5 @@ app.use("/uploads", express.static("uploads"))
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT, () => {
-  console.log("CALENDAR SUB:", subscriptionId)
   console.log(`Backend a correr na porta ${PORT}`)
 })
