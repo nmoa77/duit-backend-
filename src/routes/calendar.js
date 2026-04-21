@@ -196,26 +196,28 @@ const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
   }
 })
 
+
 // ======================
 // UPDATE POST
 // ======================
-router.put("/post/:id", async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params
-    const { content, status } = req.body
+    const { content, status, scheduledFor } = req.body
 
     const updated = await prisma.socialPost.update({
       where: { id },
       data: {
         ...(content !== undefined && { content }),
         ...(status !== undefined && { status }),
+        ...(scheduledFor && { scheduledFor: new Date(scheduledFor) })
       }
     })
 
     return res.json(updated)
 
   } catch (err) {
-    console.error("❌ UPDATE POST ERROR:", err)
+    console.error("❌ UPDATE ERROR:", err)
     return res.status(500).json({ error: "Erro ao atualizar post" })
   }
 })
