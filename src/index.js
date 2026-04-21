@@ -18,7 +18,7 @@ import clientProjectNotesRoutes from "./routes/client-project-notes.js"
 import clientSubscriptionsRoutes from "./routes/client-subscriptions.js"
 
 import { authRequired } from "./middleware/auth.js"
-
+console.log("CALENDAR SUB:", subscriptionId)
 const app = express()
 
 // ✅ CORS
