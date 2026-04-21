@@ -15,7 +15,15 @@ router.get("/month", async (req, res) => {
     }
 
    
+const start = new Date(year, month - 1, 1)
+const end = new Date(year, month, 0, 23, 59, 59)
 
+const where = {
+  scheduledFor: {
+    gte: start,
+    lte: end,
+  },
+}
   
 
     if (subscriptionId) {
@@ -129,7 +137,7 @@ router.post("/generate", async (req, res) => {
 // ======================
 router.delete("/bulk", async (req, res) => {
   try {
-    const { subscriptionId, year, month } = req.body
+    const { subscriptionId, year, month } = req.query
 
     if (!subscriptionId || !year || !month) {
       return res.status(400).json({ error: "Missing params" })
