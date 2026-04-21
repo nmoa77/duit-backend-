@@ -64,13 +64,14 @@ const posts = await prisma.socialPost.findMany({
 // ======================
 router.post("/generate", async (req, res) => {
   try {
-    const { subscriptionId, year, month, weekdays } = req.body
+    const { subscriptionId, year, month } = req.query
 
-    console.log("📦 GENERATE INPUT:", req.body)
-
-  if (!year || !month) {
+if (!year || !month) {
   return res.status(400).json({ error: "Missing params" })
 }
+
+
+
 
 const where = {
   scheduledFor: {
