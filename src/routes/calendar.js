@@ -1,131 +1,182 @@
-import { useEffect, useState } from "react"
-import { getCalendarMonth } from "../../../services/calendar"
-import { getAdminSubscriptions } from "../../../services/subscriptions"
+import express from "express"
+import prisma from "../prisma.js"
 
-export default function AdminCalendar() {
+const router = express.Router()
 
-  const today = new Date()
+// ======================
+// GET MONTH
+// ======================
+router.get("/month", async (req, res) => {
+  try {
+    const { subscriptionId, year, month } = req.query
 
-  const [subscriptions, setSubscriptions] = useState([])
-  const [subscriptionId, setSubscriptionId] = useState("")
+    if (!subscriptionId || !year || !month) {
+      return res.status(400).json({ error: "Missing params" })
+    }
 
-  const [month, setMonth] = useState(today.getMonth() + 1)
-  const [year, setYear] = useState(today.getFullYear())
+    // 🔥 FIX UTC
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0))
+    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
-  const [data, setData] = useState({})
+    console.log("🔎 RANGE:", start, end)
 
-  // ======================
-  // LOAD SUBSCRIPTIONS
-  // ======================
-  useEffect(() => {
-    async function loadSubs() {
-      const res = await getAdminSubscriptions()
+    const posts = await prisma.socialPost.findMany({
+      where: {
+        subscriptionId,
+        scheduledFor: {
+          gte: start,
+          lte: end,
+        },
+      },
+      orderBy: { scheduledFor: "asc" },
+    })
 
-      const list =
-        res.data?.subscriptions ||
-        res.data ||
-        []
+    console.log("📊 POSTS FOUND:", posts.length)
 
-      setSubscriptions(list)
+    const grouped = {}
 
-      if (list.length) {
-        setSubscriptionId(list[0].id)
+    posts.forEach((p) => {
+      const key = p.scheduledFor.toISOString().split("T")[0]
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(p)
+    })
+
+    return res.json(grouped)
+
+  } catch (err) {
+    console.error("❌ GET MONTH ERROR:", err)
+    return res.status(500).json({ error: "Erro ao carregar calendário" })
+  }
+})
+
+
+// ======================
+// GENERATE
+// ======================
+router.post("/generate", async (req, res) => {
+  try {
+    const { subscriptionId, year, month, weekdays } = req.body
+
+    console.log("📦 GENERATE INPUT:", req.body)
+
+    if (!subscriptionId || !year || !month) {
+      return res.status(400).json({ error: "Missing params" })
+    }
+
+    // 🔥 buscar subscription + client
+    const sub = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { client: true, mediaPlan: true },
+    })
+
+    if (!sub) {
+      return res.status(404).json({ error: "Subscrição não encontrada" })
+    }
+
+    // 🔥 posts por semana
+    const postsPerWeek = Math.max(
+      1,
+      Math.round((sub.mediaPlan?.postsPerMonth || 4) / 4)
+    )
+
+    console.log("📊 postsPerWeek:", postsPerWeek)
+
+    const start = new Date(year, month - 1, 1)
+    const end = new Date(year, month, 0)
+
+    // 🔥 criar lista de dias
+    const days = []
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d))
+    }
+
+    // 🔥 dividir por semanas
+    const weeks = []
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7))
+    }
+
+    // 🔥 criar array de posts
+    const toCreate = []
+
+    for (const week of weeks) {
+      let selected = []
+
+      if (weekdays && weekdays.length) {
+        selected = week.filter(d => weekdays.includes(d.getDay()))
+      } else {
+        const shuffled = [...week].sort(() => 0.5 - Math.random())
+        selected = shuffled.slice(0, postsPerWeek)
+      }
+
+      for (const d of selected) {
+        toCreate.push({
+          subscriptionId: sub.id,
+          clientId: sub.clientId, // 🔥 FIX PRINCIPAL
+          scheduledFor: new Date(d),
+          status: "novo",
+        })
       }
     }
 
-    loadSubs()
-  }, [])
+    console.log("🧠 posts to create:", toCreate.length)
 
-  // ======================
-  // LOAD CALENDAR
-  // ======================
-  useEffect(() => {
-    if (!subscriptionId) return
-
-    async function loadCalendar() {
-      const res = await getCalendarMonth({
-        subscriptionId,
-        month,
-        year,
-      })
-
-      setData(res.data)
+    // 🔥 criar posts (sem rebentar duplicados)
+    for (const post of toCreate) {
+      try {
+        await prisma.socialPost.create({
+          data: post
+        })
+      } catch (err) {
+        // ignora duplicados
+        if (err.code !== "P2002") {
+          console.error("❌ CREATE ERROR:", err)
+        }
+      }
     }
 
-    loadCalendar()
-  }, [subscriptionId, month, year])
+    return res.json({
+      ok: true,
+      created: toCreate.length,
+    })
 
-  // ======================
-  // RENDER
-  // ======================
-  return (
-    <div className="p-6 space-y-6">
+  } catch (err) {
+    console.error("❌ GENERATE ERROR:", err)
 
-      {/* TOPO */}
-      <div className="flex gap-3 items-center flex-wrap">
+    return res.status(500).json({
+      error: "Erro ao gerar calendário",
+      detail: err.message,
+    })
+  }
+})
 
-        {/* SUBS */}
-        <select
-          value={subscriptionId}
-          onChange={(e) => setSubscriptionId(e.target.value)}
-          className="border border-zinc-200 rounded-xl px-3 py-2 text-sm"
-        >
-          {subscriptions.map(sub => (
-            <option key={sub.id} value={sub.id}>
-              {sub.client?.name} — {sub.mediaPlan?.title}
-            </option>
-          ))}
-        </select>
 
-        {/* MÊS */}
-        <input
-          type="number"
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="border border-zinc-200 rounded-xl px-3 py-2 w-20 text-sm"
-        />
+// ======================
+// DELETE BULK
+// ======================
+router.delete("/bulk", async (req, res) => {
+  try {
+    const { subscriptionId, year, month } = req.body
 
-        {/* ANO */}
-        <input
-          type="number"
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="border border-zinc-200 rounded-xl px-3 py-2 w-24 text-sm"
-        />
+    const start = new Date(Date.UTC(year, month - 1, 1))
+const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
-      </div>
+    const result = await prisma.socialPost.deleteMany({
+      where: {
+        subscriptionId,
+        scheduledFor: {
+          gte: start,
+          lte: end,
+        },
+      },
+    })
 
-      {/* CALENDÁRIO */}
-      <div className="space-y-3">
+    return res.json({ deleted: result.count })
 
-        {Object.keys(data).length === 0 && (
-          <p className="text-sm text-zinc-400">
-            Sem posts neste mês
-          </p>
-        )}
+  } catch (err) {
+    console.error("❌ DELETE BULK ERROR:", err)
+    return res.status(500).json({ error: "Erro ao apagar calendário" })
+  }
+})
 
-        {Object.entries(data).map(([date, posts]) => (
-          <div
-            key={date}
-            className="border border-zinc-200 rounded-xl p-3 bg-white"
-          >
-            <p className="text-xs text-zinc-400 mb-2">
-              {date}
-            </p>
-
-            {posts.map(post => (
-              <div
-                key={post.id}
-                className="text-sm bg-zinc-100 px-3 py-2 rounded-lg"
-              >
-                {post.status}
-              </div>
-            ))}
-          </div>
-        ))}
-
-      </div>
-
-    </div>
-  )
-}
+export default router
