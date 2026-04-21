@@ -58,14 +58,25 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Missing params" })
     }
 
-    const sub = await prisma.subscription.findUnique({
-      where: { id: subscriptionId },
-      include: { mediaPlan: true },
-    })
+   const sub = await prisma.subscription.findUnique({
+  where: { id: subscriptionId },
+  include: { client: true }
+})
 
-    if (!sub) {
-      return res.status(404).json({ error: "Subscrição não encontrada" })
+if (!sub) {
+  return res.status(404).json({ error: "Subscrição não encontrada" })
+}
+
+for (const post of toCreate) {
+  await prisma.socialPost.create({
+    data: {
+      subscriptionId: sub.id,
+      clientId: sub.clientId, // 🔥 ESTE É O FIX
+      scheduledFor: new Date(post.scheduledFor),
+      status: "novo",
     }
+  })
+}
 
     const postsPerWeek = Math.max(
       1,
