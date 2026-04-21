@@ -8,24 +8,15 @@ const router = express.Router()
 // ======================
 router.get("/month", async (req, res) => {
   try {
-    const { subscriptionId, year, month } = req.query
+    const { subscriptionId, year, month, weekdays } = req.body
 
-    console.log("🔥 QUERY:", req.query)
-
-    // 👇 ESTA LINHA É A QUE TE ESTÁ A LIXAR
     if (!year || !month) {
       return res.status(400).json({ error: "Missing params" })
     }
 
-    const start = new Date(year, month - 1, 1)
-    const end = new Date(year, month, 0)
+   
 
-    const where = {
-      scheduledFor: {
-        gte: start,
-        lte: end,
-      }
-    }
+  
 
     if (subscriptionId) {
       where.subscriptionId = subscriptionId
@@ -34,7 +25,7 @@ router.get("/month", async (req, res) => {
     const posts = await prisma.socialPost.findMany({
       where,
       orderBy: { scheduledFor: "asc" },
-      include: { client: true }
+      include: { client: true },
     })
 
     const grouped = {}
@@ -59,28 +50,12 @@ router.get("/month", async (req, res) => {
 // ======================
 router.post("/generate", async (req, res) => {
   try {
-    const { subscriptionId, year, month } = req.query
+    const { subscriptionId, year, month, weekdays } = req.body
 
-if (!year || !month) {
-  return res.status(400).json({ error: "Missing params" })
-}
+    if (!subscriptionId || !year || !month) {
+      return res.status(400).json({ error: "Missing params" })
+    }
 
-  if (!year || !month) {
-  return res.status(400).json({ error: "Missing params" })
-}
-
-const where = {
-  scheduledFor: {
-    gte: start,
-    lte: end,
-  }
-}
-
-if (subscriptionId) {
-  where.subscriptionId = subscriptionId
-}
-
-    // 🔥 buscar subscription + client
     const sub = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { client: true, mediaPlan: true },
@@ -90,30 +65,24 @@ if (subscriptionId) {
       return res.status(404).json({ error: "Subscrição não encontrada" })
     }
 
-    // 🔥 posts por semana
     const postsPerWeek = Math.max(
       1,
       Math.round((sub.mediaPlan?.postsPerMonth || 4) / 4)
     )
 
-    console.log("📊 postsPerWeek:", postsPerWeek)
-
     const start = new Date(year, month - 1, 1)
     const end = new Date(year, month, 0)
 
-    // 🔥 criar lista de dias
     const days = []
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       days.push(new Date(d))
     }
 
-    // 🔥 dividir por semanas
     const weeks = []
     for (let i = 0; i < days.length; i += 7) {
       weeks.push(days.slice(i, i + 7))
     }
 
-    // 🔥 criar array de posts
     const toCreate = []
 
     for (const week of weeks) {
@@ -129,54 +98,45 @@ if (subscriptionId) {
       for (const d of selected) {
         toCreate.push({
           subscriptionId: sub.id,
-          clientId: sub.clientId, // 🔥 FIX PRINCIPAL
+          clientId: sub.clientId,
           scheduledFor: new Date(d),
           status: "novo",
         })
       }
     }
 
-    console.log("🧠 posts to create:", toCreate.length)
-
-    // 🔥 criar posts (sem rebentar duplicados)
     for (const post of toCreate) {
       try {
-        await prisma.socialPost.create({
-          data: post
-        })
+        await prisma.socialPost.create({ data: post })
       } catch (err) {
-        // ignora duplicados
         if (err.code !== "P2002") {
-          console.error("❌ CREATE ERROR:", err)
+          console.error(err)
         }
       }
     }
 
-    return res.json({
-      ok: true,
-      created: toCreate.length,
-    })
+    return res.json({ ok: true, created: toCreate.length })
 
   } catch (err) {
     console.error("❌ GENERATE ERROR:", err)
-
-    return res.status(500).json({
-      error: "Erro ao gerar calendário",
-      detail: err.message,
-    })
+    return res.status(500).json({ error: "Erro ao gerar calendário" })
   }
 })
 
 
 // ======================
-// DELETE BULK
+// DELETE BULK (MÊS)
 // ======================
 router.delete("/bulk", async (req, res) => {
   try {
     const { subscriptionId, year, month } = req.body
 
-    const start = new Date(Date.UTC(year, month - 1, 1))
-const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
+    if (!subscriptionId || !year || !month) {
+      return res.status(400).json({ error: "Missing params" })
+    }
+
+    const start = new Date(year, month - 1, 1)
+    const end = new Date(year, month, 0, 23, 59, 59)
 
     const result = await prisma.socialPost.deleteMany({
       where: {
@@ -210,8 +170,8 @@ router.put("/:id", async (req, res) => {
       data: {
         ...(content !== undefined && { content }),
         ...(status !== undefined && { status }),
-        ...(scheduledFor && { scheduledFor: new Date(scheduledFor) })
-      }
+        ...(scheduledFor && { scheduledFor: new Date(scheduledFor) }),
+      },
     })
 
     return res.json(updated)
@@ -231,36 +191,15 @@ router.delete("/:id", async (req, res) => {
     const { id } = req.params
 
     await prisma.socialPost.delete({
-      where: { id }
+      where: { id },
     })
 
     return res.json({ ok: true })
 
   } catch (err) {
     console.error("❌ DELETE ERROR:", err)
-
-    return res.status(500).json({
-      error: "Erro ao apagar post"
-    })
+    return res.status(500).json({ error: "Erro ao apagar post" })
   }
 })
-
-
-router.delete("/subscription/:subscriptionId", async (req, res) => {
-  try {
-    const { subscriptionId } = req.params
-
-    await prisma.calendarPost.deleteMany({
-      where: { subscriptionId }
-    })
-
-    res.json({ success: true })
-
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: "Erro ao apagar posts" })
-  }
-})
-
 
 export default router
