@@ -223,5 +223,27 @@ router.put("/:id", async (req, res) => {
 })
 
 
+// ======================
+// DELETE SINGLE POST
+// ======================
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params
+
+    await prisma.socialPost.delete({
+      where: { id }
+    })
+
+    return res.json({ ok: true })
+
+  } catch (err) {
+    console.error("❌ DELETE ERROR:", err)
+
+    return res.status(500).json({
+      error: "Erro ao apagar post"
+    })
+  }
+})
+
 
 export default router
