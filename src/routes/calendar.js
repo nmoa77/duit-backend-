@@ -68,9 +68,20 @@ router.post("/generate", async (req, res) => {
 
     console.log("📦 GENERATE INPUT:", req.body)
 
-    if (!subscriptionId || !year || !month) {
-      return res.status(400).json({ error: "Missing params" })
-    }
+  if (!year || !month) {
+  return res.status(400).json({ error: "Missing params" })
+}
+
+const where = {
+  scheduledFor: {
+    gte: start,
+    lte: end,
+  }
+}
+
+if (subscriptionId) {
+  where.subscriptionId = subscriptionId
+}
 
     // 🔥 buscar subscription + client
     const sub = await prisma.subscription.findUnique({
