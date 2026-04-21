@@ -10,37 +10,32 @@ router.get("/month", async (req, res) => {
   try {
     const { subscriptionId, year, month } = req.query
 
-    if (!subscriptionId || !year || !month) {
+    console.log("🔥 QUERY:", req.query)
+
+    // 👇 ESTA LINHA É A QUE TE ESTÁ A LIXAR
+    if (!year || !month) {
       return res.status(400).json({ error: "Missing params" })
     }
 
-    // 🔥 FIX UTC
-    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0))
-    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59))
+    const start = new Date(year, month - 1, 1)
+    const end = new Date(year, month, 0)
 
-    console.log("🔎 RANGE:", start, end)
+    const where = {
+      scheduledFor: {
+        gte: start,
+        lte: end,
+      }
+    }
 
-const where = {
-  scheduledFor: {
-    gte: start,
-    lte: end,
-  }
-}
+    if (subscriptionId) {
+      where.subscriptionId = subscriptionId
+    }
 
-// 👇 só filtra se NÃO for "all"
-if (subscriptionId && subscriptionId !== "all") {
-  where.subscriptionId = subscriptionId
-}
-
-const posts = await prisma.socialPost.findMany({
-  where,
-  orderBy: { scheduledFor: "asc" },
-  include: {
-    client: true, // 🔥 importante para mostrar nome
-  }
-})
-
-    console.log("📊 POSTS FOUND:", posts.length)
+    const posts = await prisma.socialPost.findMany({
+      where,
+      orderBy: { scheduledFor: "asc" },
+      include: { client: true }
+    })
 
     const grouped = {}
 
@@ -70,8 +65,9 @@ if (!year || !month) {
   return res.status(400).json({ error: "Missing params" })
 }
 
-
-
+  if (!year || !month) {
+  return res.status(400).json({ error: "Missing params" })
+}
 
 const where = {
   scheduledFor: {
